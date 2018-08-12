@@ -5,7 +5,7 @@
  * Author: Chris Darcy
  */
 .equ	START	= 0				;lower bound of for loop
-.equ	END		= 10			;upper (inclusive) bound of for loop
+.equ	END		= 10			;upper (exclusive) bound of for loop
 .def	index	= r18			;index of the for loop (lcv)
 .equ	PIN13	= 1<<PB5		;visual confirmation of iteration
 .def	util	= r16			;generic utility register
@@ -23,7 +23,7 @@ loop:
 	ldi		index,START			;initialize loop control variable
 forLoop:
 	cpi		index,END			;are we finished?
-	brge	exit				;if so, exit the for loop
+	breq	exit				;if so, exit the for loop
 	eor		util,led			;body of the for loop: toggle state of pin 13
 	out		PORTB,util			;display it
 	rcall	delay1s				;admire
