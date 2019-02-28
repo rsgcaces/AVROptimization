@@ -1,6 +1,6 @@
 // PROJECT  :MorlandBargraphSMTV1
-// PURPOSE  :To confirm Morland Bargraph SMT version 1
-// DATE     :2019 02 14
+// PURPOSE  :To confirm Morland Bargraph SMT version 1 with various animations
+// DATE     :2019 02 28
 // STATUS   :Working
 #define dataPin 13
 #define clockPin 12
@@ -10,21 +10,32 @@
 #define R2L 0
 #define L2R 1
 #define LEDs 24
+#define POTT
 uint32_t UPPER = 1L << LEDs;
 uint32_t n = 1;
-
+uint8_t rate;
 void setup() {
   pinMode(dataPin, OUTPUT);   //
   pinMode(clockPin, OUTPUT);  //declare pins for output
   pinMode(latchPin, OUTPUT);  //
   pinMode(enablePin, OUTPUT);  //
   digitalWrite(enablePin, LOW);
-  
-  //uncomment one of the four presentations below
-  shoot(L2R, DELAYMS);
-  //displayRandom();
-  //displayAll();
-  //breathe(5);
+#ifdef POT    //currently a one time read on startup to set the rate
+  pinMode(A0, OUTPUT);
+  pinMode(A2, OUTPUT);
+  digitalWrite(A0, LOW);
+  digitalWrite(A2, HIGH);
+  rate = analogRead(A1) >> 2;
+#endif
+#ifndef POT
+  rate = DELAYMS;
+#endif
+  //uncomment one of the animations below
+  //shoot(L2R, rate);
+  //shoot(R2L, rate);
+  // displayRandom();
+  // displayAll();
+  breathe(5);
 }
 
 //utility function used by most (all?) animations below
