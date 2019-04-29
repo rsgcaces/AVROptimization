@@ -72,6 +72,8 @@
 .equ    fclk                = 16000000      ; system clock frequency (for delays)
 ; LCD interface (should agree with the diagram above)
 ;   make sure that the LCD RW pin is connected to GND
+#ifndef	LOCALLCD
+;these pin assignments are compatible with the RSGC ACES LCD Appliance PCB
 .equ    lcd_D7_port         = PORTD         ; lcd D7 connection
 .equ    lcd_D7_bit          = PORTD2
 .equ    lcd_D7_ddr          = DDRD
@@ -95,7 +97,7 @@
 .equ    lcd_RS_port         = PORTD         ; lcd Register Select pin
 .equ    lcd_RS_bit          = PORTD7
 .equ    lcd_RS_ddr          = DDRD
-
+#endif
 ; LCD module information
 .equ    lcd_LineOne         = 0x00          ; start of line 1
 .equ    lcd_LineTwo         = 0x40          ; start of line 2
