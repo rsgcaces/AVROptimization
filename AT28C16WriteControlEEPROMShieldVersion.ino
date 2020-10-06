@@ -1,35 +1,46 @@
-// PROJECT  :AT28C16WriteControlEEPROM
-// PURPOSE  :Writes data to the AT28C16 (2Kx8) EEPROM IC used for Control Codes
+// PROJECT  :AT28C16WriteControlEEPROMShieldVersion
+// PURPOSE  :Flashes the AT28C16 (2Kx8) EEPROM IC for Program and Control Codes
 // COURSE   :ICS4U
-// AUTHOR   :B. Eater. adapted for ACES CHUMP use by C. D'Arcy
-// DATE     :2019 12 07. Confirmed 2020 10 04
+// AUTHOR   :B. Eater. adapted for ACES' CHUMP use by C. D'Arcy
+// DATE     :Confirmed: 2020 10 06
 // MCU      :Nano/328p
 // STATUS   :Working
 // NOTE     :Close as many other open applications as possible to
-//          :provide as little backround mysteries and as much free RAM
+//          :provide as little background mysteries and as much free RAM
 //          :as possible. This has proven to be a 'sensitive' sketch.
-//WORKSHEET :CHUMPPartsList.xlsx on my laptop
-// REFERENCE:B. Eater Github...
+// OPTION   :Adjust boolean variables to perform Write and/or Read
+//WORKSHEET :CHUMPPartsList.xlsx on my laptop with Control Codes
+//REFERENCE :B. Eater Github...
 //          :https://github.com/beneater/eeprom-programmer/blob/master/eeprom-programmer/eeprom-programmer.ino
-// REFERENCE:B. Eater Videos
+//REFERENCE :B. Eater Videos
 //          1. Using an EEPROM to replace combinational logic
 //          https://www.youtube.com/watch?v=BA12Z7gQ4P0&feature=emb_logo
 //          2. Build an Arduino EEPROM programmer
 //          https://www.youtube.com/watch?v=K88pgWhEb1M&feature=emb_logo
-// REFERENCE:C. D'Arcy video
-//          https://drive.google.com/file/d/1te2hyfPv4tktT8398nUsuvJcwPtQwapH/view
+//REFERENCE :C. D'Arcy video
+//         https://drive.google.com/file/d/1uVkS9kr7deTCG3GVGE0JxhzmMqhn4OrR/view?usp=sharing
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// CHUMP Basic Program Example
+// Feinberg's Basic CHUMPanese Program Example
 //  0000: 10000010  READ    2   ;addr<-2
 //  0001: 00010000  LOAD    IT  ;accum<-mem[addr]
 //  0002: 00100001  ADD     1   ;accum++
 //  0003: 01100010  STORETO 2   ;mem[2]<-accum
 //  0004: 10100000  GOTO    0   ;pc<-0000
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-bool debug = true;
-//storage for code read back from EEPROM
-byte codeRead[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-//based on my analysis in the Excel worksheet referenced above..
+// I employ a 16-byte buffer for consistent CHUMP writing and reading
+#define DFLT  0xFF     //default byte contents for EEPROM write buffer
+byte codeWrite[16] = { DFLT, DFLT, DFLT, DFLT, //storage for code written
+                       DFLT, DFLT, DFLT, DFLT,
+                       DFLT, DFLT, DFLT, DFLT,
+                       DFLT, DFLT, DFLT, DFLT
+                     };
+byte codeRead[16] = { 0, 0, 0, 0, //storage for EEPROM read buffer
+                      0, 0, 0, 0,
+                      0, 0, 0, 0,
+                      0, 0, 0, 0
+                    };
+
+//based on my analysis in the Excel worksheet referenced above...
 /*
   byte code [] = {//Common 2019/2020 Control Codes
   //  SSSSMCAR/W  //S3..S0-Select, M-Mode, C-Carry, A-Accum, R/W-Addr Read/~Write
@@ -51,178 +62,55 @@ byte codeRead[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
   0b00001011    //0x0B  1111 IFZERO   IT      ALU:Not A
   };
 */
-
-byte code [] = {//Feinberg Example
+byte code0 [] = {//Feinberg Example
   0b10000010,   //0x82
   0b00010000,   //0x10
   0b00100001,   //0x21
   0b01100010,   //0x62
-  0b10100000   //0xA0
-//  0b10100000    //eof
-  };
+  0b10100000    //0xA0
+};
+byte code [] = {//CHUMP Workbook: Enhanced Swapping Variables code
+  0b00010001, // LOAD 1       accum<-1,pc++       Places a 1 in the accumulator
+  0b11010101, // STORETO x    [5]<-accum,pc++     Stores accum (1) in RAM Address 5 
+  0b00010010, // LOAD 2       accum<-2,pc++       Places a 2 in the accumulator
+  0b11011111, // STORETO x    [15]<-accum,pc++    Stores accum (2) in RAM Address 15 
+  0b10000101, // READ x       addr<-5, pc++
+  0b00010000, // LOAD IT      accum[5], pc++
+  0b01101111, // STORETO temp [15]<-accum, pc++
+  0b10001010, // READ y       addr<-10, pc++
+  0b00010000, // LOAD IT      accum<-[10], pc++
+  0b01100101, // STORETO x    [5]<-accum, pc++
+  0b10001111, // READ temp    addr<-15, pc++
+  0b00010000, // LOAD IT      accum<-[15], pc++
+  0b01101010, // STORETO y    [10]<-accum, pc++
+};
 
-/*
-  byte code [] = {//Josh's Code Original
-  0b00000000, // Load 0
-  0b01100010, // Store to 2
-  0b00000101, // LOAD 5
-  0b01100001, // STORETO 1
-  0b10000010, // READ 2
-  0b00010000, // LOAD IT
-  0b10000001, // READ 1
-  0b00110000, // ADD IT
-  0b01100010, // STORETO 2
-  0b10000001, // READ 1
-  0b00010000, // LOAD IT
-  0b01000001, // SUBTRACT 1
-  0b11101110, // IFZERO 14
-  0b11000011, // GOTO 3
-  0b11001110  // GOTO 14
-  };
-*/
-/*
-  byte code [] = {//Josh's Code 2
-  0b00000101,     //0x05
-  0b01100001,     //0x61
-  0b10000001,     //0x82
-  0b00010000,     //0x10
-  0b01000001,     //0x81
-  0b11100111,     //0x30
-  0b11000001};
-*/
-/*
-  byte code [] = {//Fola's code
-  0b00001010,     //0x0A      LOAD 10
-  0b01100101,     //0x65      STORETO 5
-  0b10000101,     //0x85      READ  5
-  0b00010000,     //0x10      LOAD  IT
-  0b11100111,     //0xE7      IFZERO 7
-  0b01000001,     //0x41      SUBTRACT  1
-  0b11000001,     //0xC1      GOTO  1
-  0b11000111      //0xC7      GOTO 7
-  }; */
-/*
-  byte code [] = {//Lank's Code
-  0b00000110,     //0x06
-  0b01100001,     //0x61
-  0b10010001,     //0x91
-  0b00000000,     //0x00
-  0b01000010,     //0x42
-  0b01100001,     //0x61
-  0b10000010,     //0x82
-  0b00000000,     //0x00
-  0b00100001,     //0x21
-  0b01100010,     //0x62
-  0b10010001,     //0x91
-  0b00000000,     //0x00
-  0b11101110,     //0xEE
-  0b11000010,     //0xC2
-  0b10000010     //0x82
-  };
-*/
-/*
-  byte code [] = {
-  0b10001111,   //Macdonald
-  0b00010000,
-  0b11000110,     //IFZERO 6
-  0b01000001,
-  0b11000010,     // GOTO 2
-  0b00001111,
-  0b01100110,
-  0b11000000      //GOTO 0
-  }; */
-/*
-  byte code [] = {
-  0b00000101,   //Mazzucca
-  0b01100111,
-  0b00010110,
-  0b10000101,
-  0b00010110,
-  0b01100111,
-  0b11000000    //GOTO 0
-  };
-*/
-/*
-  byte code [] = {  //McCutcheon
-  0b10000011, //0 READ 3
-  0b00010000, //1 LOAD IT
-  0b11101101, //2 IFZERO 13
-  0b01000001, //3 SUBTRACT 1
-  0b11101000, //4 IFZERO 8
-  0b01000001, //5 SUBTRACT 1
-  0b11101011, //6 IFZERO 11
-  0b11000011, //7 GOTO 3
-  0b00000001, //8 LOAD 1
-  0b01100001, //9 STORETO 1
-  0b11001101, //10 GOTO 13
-  0b00000010, //11 LOAD 2
-  0b01100010, //12 STORETO 2
-  0b11001101, //13 GOTO 13
-  };
-*/
-/*
-  byte code [] = {
-  0b00000100,   //Parker
-  0b01000010,
-  0b11100110,   //E6
-  0b00000010,
-  0b01100101,
-  0b11001001,     //C9
-  0b00000100,
-  0b01000001,
-  0b01100100,
-  0b00000101,
-  0b00110000,
-  0b01100110,
-  0b11000000      //C0    GOTO 0
-  };
-*/
-/*
-
-  byte code [] = { //Peterson
-  0b10000011,  //READ     3   ;addr<-3  (assumes contents are 0?)
-  0b00010000,  //LOAD     IT  ;accum<-mem[3]
-  0b11000100,  //IFZERO   4   ;pc<-0004
-  0b11000110,  //GOTO     6   ;pc<-0006
-  0b00100101,  //ADD      5   ;accum=accum+5
-  0b11000010,  //GOTO     2   ;pc<-0002
-  0b00100001,  //ADD      1   ;accum++
-  0b01100011,  //STORETO  3   ;mem[3]<-accum
-  0b11001000   //GOTO     8   ;infinite loop
-  };*/
-/*
-  byte code [] = {
-  0b00000000,   //Pyper...
-  0b01100001,
-  0b01100010,
-  0b10000001,
-  0b00010000,
-  0b01000101,
-  0b11101110,   //IFZERO 14
-  0b00100110,   // add 6
-  0b01100001,
-  0b10000010,
-  0b00010000,
-  0b00100010,
-  0b01100010,
-  0b11000011,    //GOTO 3
-  0b11001110    // GOTO 14
-  };
-*/
 #define PROG_SIZE sizeof(code)
-#define EEPROM_D0 5
-#define EEPROM_D7 12
-#define EEPROM_WE 13
-#define EEPROM_A0 14    //  |PC0
-#define EEPROM_A1 15    //  |PC1
-#define EEPROM_A2 16    //  |PC2
-#define EEPROM_A3 17    //  |PC3
-#define EEPROM_OE 18    //  |PC4
-// Tie /CE to ground as permanently enabled
-#define CLK       2
-#define LATCH     3
-#define DATA      4
+#define CLK       2     // Supports '595/bargraph read/echo support
+#define LATCH     3     // "
+#define DATA      4     // "
+#define EEPROM_D0 5     // I/O 0 
+#define EEPROM_D7 12    // I/O 7
+#define EEPROM_PAGE 13  // Supports paging
+#define EEPROM_OE 14    // AT28C16 Output Enable 
+#define EEPROM_WE 15    // AT28C16 Write Enable  
+// Tie /CE (Chip Enable) to ground as permanently enabled
+#define EEPROM_A0 16    // Address Line 0
+#define EEPROM_A1 17    // Address Line 1
+#define EEPROM_A2 18    // Address Line 2
+#define EEPROM_A3 19    // Address Line 3
+
+boolean writeIt = true;
+boolean readIt = true;
+boolean debug = true;
+
 void setup() {
+  Serial.begin(9600);                 //Enable logging of EEPROM access
+  while (!Serial);                    //Wait until ready...
+  //ACES' Paging Feature: Allows 2 CHUMPANESE programs stored in Program EEPROM 
+  pinMode(EEPROM_PAGE, OUTPUT);       //Feinberg (Page 0) and Personal (Page 1)
+  digitalWrite(EEPROM_PAGE, HIGH);    //LOW for Page 0, HIGH for Page 1
+
   pinMode(EEPROM_A0, OUTPUT);
   pinMode(EEPROM_A1, OUTPUT);
   pinMode(EEPROM_A2, OUTPUT);
@@ -231,51 +119,62 @@ void setup() {
   pinMode(EEPROM_WE, OUTPUT);
   digitalWrite(EEPROM_OE, HIGH);
   pinMode(EEPROM_OE, OUTPUT);
-  pinMode(LATCH, OUTPUT);
-  pinMode(CLK, OUTPUT);
-  pinMode(DATA, OUTPUT);
 
-  Serial.begin(9600);
-  while (!Serial);
-  // Zero out the target for the reading of EEPROM just to be sure...
-  for (int address = 0; address < PROG_SIZE; address++)
-    codeRead[address] = 0;
-
-  if (debug) {
-    //Display the code to be flashed...
-    Serial.println("Here's the data to be flashed to EEPROM...");
-    for (int address = 0; address < PROG_SIZE; address++) {
-      Serial.print(code[address], HEX);
-      Serial.print("\t");
+  if (writeIt) {
+    for (uint8_t address = 0; address < PROG_SIZE; address++)
+      codeWrite[address] = code[address];
+    if (debug) {
+      //Display the code to be flashed...
+      Serial.println("Here's the data to be flashed to EEPROM...");
+      for (int address = 0; address < PROG_SIZE; address++) {
+        Serial.print(code[address], HEX);
+        Serial.print("\t");
+      }
+      Serial.println();
+      // Write the code to EEPROM...
+      Serial.println("Writing " + String(PROG_SIZE) + " bytes of code to EEPROM...");
     }
-    Serial.println();
-    // Write the code to EEPROM...
-    Serial.println("Writing " + String(PROG_SIZE) + " bytes of code to EEPROM...");
+    //Write code to EEPROM...
+    for (int address = 0; address < 16; address++) {
+      writeEEPROM(address, codeWrite[address]);
+    }
+    if (debug)
+      Serial.println("Done");
   }
-  //Write code to EEPROM...
-  for (int address = 0; address < PROG_SIZE; address++) {
-    writeEEPROM(address, code[address]);
-  }
-  if (debug) {
-    Serial.println("Done");
 
+  if (readIt) {
     // Confirm the write by reading and echoing the code to the Serial Monitor...
     Serial.println("Reading EEPROM");
+    printContents();
   }
-  printContents();
 }
 
 // Read the contents of the EEPROM, print them to the serial monitor
-// Shift them out to a 595/bargraph combo.
+// Shift them out to a 595/bargraph combo...
 void printContents() {
+  // Zero out the target for the reading of EEPROM just to be sure...
+  for (int address = 0; address < 16; address++)
+    codeRead[address] = 0;
+
   //Separate the reading from the displaying...
-  for (int address = 0; address < PROG_SIZE; address++) {
+  for (int address = 0; address < 16; address++) {
     codeRead[address] = readEEPROM(address);
-    Serial.println(codeRead[address], HEX);
+    Serial.print(codeRead[address], HEX);
+    Serial.print(' ');
     delay(10);
   }
-  Serial.println(String(PROG_SIZE)+" bytes read back:");
-  for (int address = 0; address < PROG_SIZE; address++) {
+  Serial.println("Read and Echo completed.");
+  Serial.println("Pause for 2 seconds...");
+  pinMode(LATCH, OUTPUT);
+  pinMode(CLK, OUTPUT);
+  pinMode(DATA, OUTPUT);
+  digitalWrite(LATCH, LOW);
+  shiftOut(DATA, CLK, LSBFIRST, 0);
+  digitalWrite(LATCH, HIGH);
+  delay(2000);
+  Serial.println("Bargraph display...");
+
+  for (uint8_t address = 0; address < 16; address++) {
     Serial.println(codeRead[address], HEX);
     digitalWrite(LATCH, LOW);
     shiftOut(DATA, CLK, LSBFIRST, codeRead[address]);
@@ -342,7 +241,7 @@ void writeEEPROM(int address, byte data) {
 }
 
 void loop() {
-  // nothing left to do...
+  // nothing to do but hold...
 }
 
 /*  What follows below is Eater's original code beofre I modified it
