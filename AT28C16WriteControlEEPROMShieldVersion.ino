@@ -42,10 +42,10 @@ byte codeRead[16] = { 0, 0, 0, 0, //storage for EEPROM read buffer
 
 byte code [] = {
   //AT28C16 Codes for LB-602MK2 Dual 7-Segment display
-  //Ensure EEPROM_PAGE set to LOW
+  //Ensure EEPROM_PAGE set to LOW as Feinberg Example should be Page 0 
   // See CHUMP7Segment.xlsx Spreadsheet
   // Segment Order: FGABCDE:  I/O6 | I/O5 | I/O4 | I/O3 | I/O0 | I/O1 | I/O2
-  0x5F, 0x0C, 0x3B, 0x3E, 0x6C, 0x76, 0x77, 0x1C, 0x7F, 0x7C, 0xFD, 0x67, 0x56, 0x2F, 0x73, 0x71
+  0x5F, 0x0C, 0x3B, 0x3E, 0x6C, 0x76, 0x77, 0x1C, 0x7F, 0x7C, 0xFD, 0x67, 0x53, 0x2F, 0x73, 0x71
 };
 
 //based on my analysis in the Excel worksheet referenced above...
@@ -76,11 +76,13 @@ byte code0 [] = {//Feinberg Example
   0b01100010,   //0x62
   0b10100000    //0xA0
 };
-byte code1 [] = {//CHUMP Workbook: Enhanced Swapping Variables code
-  0b00010001, // LOAD 1       accum<-1,pc++       Places a 1 in the accumulator
-  0b11010101, // STORETO x    [5]<-accum,pc++     Stores accum (1) in RAM Address 5
-  0b00010010, // LOAD 2       accum<-2,pc++       Places a 2 in the accumulator
-  0b11011111, // STORETO x    [15]<-accum,pc++    Stores accum (2) in RAM Address 15
+byte code1 [] = {
+  //CHUMP Workbook: Enhanced Swapping Variables code
+  //Ensure EEPROM_PAGE set to HIGH as User code should be Page 1
+  0b00000001, // LOAD 1       accum<-1,pc++       Places a 1 in the accumulator
+  0b11000101, // STORETO x    [5]<-accum,pc++     Stores accum (1) in RAM Address 5
+  0b00000010, // LOAD 2       accum<-2,pc++       Places a 2 in the accumulator
+  0b11001111, // STORETO x    [15]<-accum,pc++    Stores accum (2) in RAM Address 15
   0b10000101, // READ x       addr<-5, pc++
   0b00010000, // LOAD IT      accum[5], pc++
   0b01101111, // STORETO temp [15]<-accum, pc++
