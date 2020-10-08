@@ -2,7 +2,7 @@
 // PURPOSE  :Flashes the AT28C16 (2Kx8) EEPROM IC for Program and Control Codes
 // COURSE   :ICS4U
 // AUTHOR   :B. Eater. adapted for ACES' CHUMP use by C. D'Arcy
-// DATE     :Confirmed: 2020 10 06
+// DATE     :Confirmed: 2020 10 08
 // MCU      :Nano/328p
 // STATUS   :Working
 // NOTE     :Close as many other open applications as possible to
@@ -40,9 +40,16 @@ byte codeRead[16] = { 0, 0, 0, 0, //storage for EEPROM read buffer
                       0, 0, 0, 0
                     };
 
+byte code [] = {
+  //AT28C16 Codes for LB-602MK2 Dual 7-Segment display
+  //Ensure EEPROM_PAGE set to LOW
+  // See CHUMP7Segment.xlsx Spreadsheet
+  // Segment Order: FGABCDE:  I/O6 | I/O5 | I/O4 | I/O3 | I/O0 | I/O1 | I/O2
+  0x5F, 0x0C, 0x3B, 0x3E, 0x6C, 0x76, 0x77, 0x1C, 0x7F, 0x7C, 0xFD, 0x67, 0x56, 0x2F, 0x73, 0x71
+};
+
 //based on my analysis in the Excel worksheet referenced above...
-/*
-  byte code [] = {//Common 2019/2020 Control Codes
+byte codeC [] = {//Common 2019/2020 Control Codes
   //  SSSSMCAR/W  //S3..S0-Select, M-Mode, C-Carry, A-Accum, R/W-Addr Read/~Write
   0b10101000,   //0xA9  0000 LOAD     const   ALU:B
   0b10101001,   //0xA9  0001 LOAD     IT      ALU:B
@@ -60,8 +67,8 @@ byte codeRead[16] = { 0, 0, 0, 0, //storage for EEPROM read buffer
   0b11001011,   //0xCB  1101 GOTO     IT      ALU:Logic 1
   0b00001011,   //0x0B  1110 IFZERO   const   ALU:Not A
   0b00001011    //0x0B  1111 IFZERO   IT      ALU:Not A
-  };
-*/
+};
+
 byte code0 [] = {//Feinberg Example
   0b10000010,   //0x82
   0b00010000,   //0x10
@@ -69,11 +76,11 @@ byte code0 [] = {//Feinberg Example
   0b01100010,   //0x62
   0b10100000    //0xA0
 };
-byte code [] = {//CHUMP Workbook: Enhanced Swapping Variables code
+byte code1 [] = {//CHUMP Workbook: Enhanced Swapping Variables code
   0b00010001, // LOAD 1       accum<-1,pc++       Places a 1 in the accumulator
-  0b11010101, // STORETO x    [5]<-accum,pc++     Stores accum (1) in RAM Address 5 
+  0b11010101, // STORETO x    [5]<-accum,pc++     Stores accum (1) in RAM Address 5
   0b00010010, // LOAD 2       accum<-2,pc++       Places a 2 in the accumulator
-  0b11011111, // STORETO x    [15]<-accum,pc++    Stores accum (2) in RAM Address 15 
+  0b11011111, // STORETO x    [15]<-accum,pc++    Stores accum (2) in RAM Address 15
   0b10000101, // READ x       addr<-5, pc++
   0b00010000, // LOAD IT      accum[5], pc++
   0b01101111, // STORETO temp [15]<-accum, pc++
@@ -107,9 +114,9 @@ boolean debug = true;
 void setup() {
   Serial.begin(9600);                 //Enable logging of EEPROM access
   while (!Serial);                    //Wait until ready...
-  //ACES' Paging Feature: Allows 2 CHUMPANESE programs stored in Program EEPROM 
+  //ACES' Paging Feature: Allows 2 CHUMPANESE programs stored in Program EEPROM
   pinMode(EEPROM_PAGE, OUTPUT);       //Feinberg (Page 0) and Personal (Page 1)
-  digitalWrite(EEPROM_PAGE, HIGH);    //LOW for Page 0, HIGH for Page 1
+  digitalWrite(EEPROM_PAGE, LOW);    //LOW for Page 0, HIGH for Page 1
 
   pinMode(EEPROM_A0, OUTPUT);
   pinMode(EEPROM_A1, OUTPUT);
@@ -126,13 +133,14 @@ void setup() {
     if (debug) {
       //Display the code to be flashed...
       Serial.println("Here's the data to be flashed to EEPROM...");
-      for (int address = 0; address < PROG_SIZE; address++) {
-        Serial.print(code[address], HEX);
+      for (int address = 0; address < 16; address++) {
+        Serial.print(codeWrite[address], HEX);
         Serial.print("\t");
       }
       Serial.println();
+      // while(1);
       // Write the code to EEPROM...
-      Serial.println("Writing " + String(PROG_SIZE) + " bytes of code to EEPROM...");
+      Serial.println("Writing 16 bytes of code to EEPROM...");
     }
     //Write code to EEPROM...
     for (int address = 0; address < 16; address++) {
@@ -216,7 +224,7 @@ void writeEEPROM(int address, byte data) {
   digitalWrite(EEPROM_OE, LOW);
   digitalWrite(EEPROM_WE, HIGH);
   if (debug) {
-    Serial.println("[" + String(address) + "]" + String(code[address], HEX));
+    Serial.println("[" + String(address) + "]" + String(codeWrite[address], HEX));
     delay(10);
   }
   //Set the address
