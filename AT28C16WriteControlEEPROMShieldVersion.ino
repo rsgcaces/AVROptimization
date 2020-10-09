@@ -2,9 +2,9 @@
 // PURPOSE  :Flashes the AT28C16 (2Kx8) EEPROM IC for Program and Control Codes
 // COURSE   :ICS4U
 // AUTHOR   :B. Eater. adapted for ACES' CHUMP use by C. D'Arcy
-// DATE     :Confirmed: 2020 10 08
+// DATE     :Confirmed: 2020 10 09.
 // MCU      :Nano/328p
-// STATUS   :Working
+// STATUS   :Working on RSGC ACES EEPROM Burner Shield for 28C16A-15
 // NOTE     :Close as many other open applications as possible to
 //          :provide as little background mysteries and as much free RAM
 //          :as possible. This has proven to be a 'sensitive' sketch.
@@ -18,7 +18,7 @@
 //          2. Build an Arduino EEPROM programmer
 //          https://www.youtube.com/watch?v=K88pgWhEb1M&feature=emb_logo
 //REFERENCE :C. D'Arcy video
-//         https://drive.google.com/file/d/1uVkS9kr7deTCG3GVGE0JxhzmMqhn4OrR/view?usp=sharing
+//         https://drive.google.com/file/d/12FoAc5GdYHuSdHf3LrMWL7VSGYHGxhIQ/view
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Feinberg's Basic CHUMPanese Program Example
 //  0000: 10000010  READ    2   ;addr<-2
@@ -40,15 +40,8 @@ byte codeRead[16] = { 0, 0, 0, 0, //storage for EEPROM read buffer
                       0, 0, 0, 0
                     };
 
-byte code [] = {
-  //AT28C16 Codes for LB-602MK2 Dual 7-Segment display
-  //Ensure EEPROM_PAGE set to LOW as Feinberg Example should be Page 0 
-  // See CHUMP7Segment.xlsx Spreadsheet
-  // Segment Order: FGABCDE:  I/O6 | I/O5 | I/O4 | I/O3 | I/O0 | I/O1 | I/O2
-  0x5F, 0x0C, 0x3B, 0x3E, 0x6C, 0x76, 0x77, 0x1C, 0x7F, 0x7C, 0xFD, 0x67, 0x53, 0x2F, 0x73, 0x71
-};
-
-//based on my analysis in the Excel worksheet referenced above...
+//Ensure EEPROM_PAGE set to LOW (Page 0)
+//#define PAGE LOW
 byte codeC [] = {//Common 2019/2020 Control Codes
   //  SSSSMCAR/W  //S3..S0-Select, M-Mode, C-Carry, A-Accum, R/W-Addr Read/~Write
   0b10101000,   //0xA9  0000 LOAD     const   ALU:B
@@ -68,17 +61,19 @@ byte codeC [] = {//Common 2019/2020 Control Codes
   0b00001011,   //0x0B  1110 IFZERO   const   ALU:Not A
   0b00001011    //0x0B  1111 IFZERO   IT      ALU:Not A
 };
-
-byte code0 [] = {//Feinberg Example
+//Ensure EEPROM_PAGE set to LOW as Feinberg Example should be Page 0
+#define PAGE LOW
+byte code [] = {//Feinberg Example
   0b10000010,   //0x82
   0b00010000,   //0x10
   0b00100001,   //0x21
   0b01100010,   //0x62
   0b10100000    //0xA0
 };
+//Ensure EEPROM_PAGE set to HIGH as USER code should be Page 1
+//#define PAGE HIGH
 byte code1 [] = {
   //CHUMP Workbook: Enhanced Swapping Variables code
-  //Ensure EEPROM_PAGE set to HIGH as User code should be Page 1
   0b00000001, // LOAD 1       accum<-1,pc++       Places a 1 in the accumulator
   0b11000101, // STORETO x    [5]<-accum,pc++     Stores accum (1) in RAM Address 5
   0b00000010, // LOAD 2       accum<-2,pc++       Places a 2 in the accumulator
@@ -92,6 +87,14 @@ byte code1 [] = {
   0b10001111, // READ temp    addr<-15, pc++
   0b00010000, // LOAD IT      accum<-[15], pc++
   0b01101010, // STORETO y    [10]<-accum, pc++
+};
+//AT28C16 Codes for LB-602MK2 Dual 7-Segment display
+//Ensure EEPROM_PAGE set to LOW (Page 0)
+//#define PAGE LOW
+byte code7 [] = {
+  // See CHUMP7Segment.xlsx Spreadsheet
+  // Segment Order: FGABCDE:  I/O6 | I/O5 | I/O4 | I/O3 | I/O0 | I/O1 | I/O2
+  0x5F, 0x0C, 0x3B, 0x3E, 0x6C, 0x76, 0x77, 0x1C, 0x7F, 0x7C, 0xFD, 0x67, 0x53, 0x2F, 0x73, 0x71
 };
 
 #define PROG_SIZE sizeof(code)
@@ -118,7 +121,7 @@ void setup() {
   while (!Serial);                    //Wait until ready...
   //ACES' Paging Feature: Allows 2 CHUMPANESE programs stored in Program EEPROM
   pinMode(EEPROM_PAGE, OUTPUT);       //Feinberg (Page 0) and Personal (Page 1)
-  digitalWrite(EEPROM_PAGE, LOW);    //LOW for Page 0, HIGH for Page 1
+  digitalWrite(EEPROM_PAGE, PAGE);     //LOW for Page 0, HIGH for Page 1
 
   pinMode(EEPROM_A0, OUTPUT);
   pinMode(EEPROM_A1, OUTPUT);
@@ -187,7 +190,7 @@ void printContents() {
   for (uint8_t address = 0; address < 16; address++) {
     Serial.println(codeRead[address], HEX);
     digitalWrite(LATCH, LOW);
-    shiftOut(DATA, CLK, LSBFIRST, codeRead[address]);
+    shiftOut(DATA, CLK, MSBFIRST, codeRead[address]);
     digitalWrite(LATCH, HIGH);
     delay(1000);
   }
