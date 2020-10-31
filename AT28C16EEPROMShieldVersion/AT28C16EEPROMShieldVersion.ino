@@ -1,9 +1,9 @@
-// PROJECT  :AT28C16WriteControlEEPROMShieldVersion
+// PROJECT  :AT28C16EEPROMShieldVersion
 // PURPOSE  :Flashes the AT28C16 (2Kx8) EEPROM IC for Program, Control, and 7-Segment Hex Codes
 // COURSE   :ICS4U
 // AUTHOR   :B. Eater. adapted for ACES' CHUMP use by C. D'Arcy
-// DATE     :Confirmed: 2020 10 10
-// MCU      :Nano/328p
+// DATE     :Confirmed: 2020 10 31
+// MCU      :UNO
 // STATUS   :Working (on RSGC ACES EEPROM Burner Shield for 28C16A-15)
 // NOTE     :Close as many other open applications as possible to
 //          :provide as little background mysteries and as much free RAM
@@ -21,6 +21,16 @@
 //            https://drive.google.com/file/d/1uVkS9kr7deTCG3GVGE0JxhzmMqhn4OrR/view
 //          :C. D'Arcy's EEPROM Shield...
 //            https://drive.google.com/file/d/12FoAc5GdYHuSdHf3LrMWL7VSGYHGxhIQ/view
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// CHUMPanese INSTRUCTION SET where n: 0-constant, 1-memory (RAM)
+//  000n  LOAD
+//  001n  ADD 
+//  010n  SUBTRACT
+//  011n  STORETO
+//  100n  READ
+//  101n  GOTO
+//  110n  IFZERO
+//  111n  User-defined
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Feinberg's Basic CHUMPanese Program Example
 //  0000: 10000010  READ    2   ;addr<-2
@@ -43,10 +53,11 @@ byte codeRead[16] = { 0, 0, 0, 0, //storage for EEPROM read buffer
                     };
 
 //Ensure EEPROM_PAGE set to LOW (Page 0)
-//#define PAGE LOW
-byte codeC [] = {//Common 2019/2020 Control Codes
-  //  SSSSMCAR/W  //S3..S0-Select, M-Mode, C-Carry, A-Accum, R/W-Addr Read/~Write
-  0b10101000,   //0xA9  0000 LOAD     const   ALU:B
+#define PAGE LOW
+byte code [] = {//Common 2019/2020 Control Codes
+// REF: http://www.righto.com/2017/03/inside-vintage-74181-alu-chip-how-it.html
+//  SSSSMCAR/W  //S3..S0-Select, M-Mode, C-Carry, A-Accum, R/W-Addr Read/~Write
+  0b10101000,   //0xA8  0000 LOAD     const   ALU:B
   0b10101001,   //0xA9  0001 LOAD     IT      ALU:B
   0b10010101,   //0x95  0010 ADD      const   ALU:A plus B
   0b10010101,   //0x95  0011 ADD      IT      ALU:A plus B
@@ -56,27 +67,27 @@ byte codeC [] = {//Common 2019/2020 Control Codes
   0b00000010,   //0x02  0111 STORETO  IT      ALU:ignore
   0b00000011,   //0x03  1000 READ     const   ALU:ignore
   0b00000011,   //0x03  1001 READ     IT      ALU:ignore
-  0b00000000,   //0x00  1010 FILLER   const   ALU:ignore
-  0b00000000,   //0x00  1011 FILLER   IT      ALU:ignore
-  0b11001011,   //0xCB  1100 GOTO     const   ALU:Logic 1
-  0b11001011,   //0xCB  1101 GOTO     IT      ALU:Logic 1
-  0b00001011,   //0x0B  1110 IFZERO   const   ALU:Not A
-  0b00001011    //0x0B  1111 IFZERO   IT      ALU:Not A
+  0b11001011,   //0xCB  1010 GOTO     const   ALU:Logic 1 (Z Flag to PCs LOAD) 
+  0b11001011,   //0xCB  1011 GOTO     IT      ALU:Logic 1 (Z Flag to PCs LOAD)
+  0b00001011,   //0x0B  1100 IFZERO   const   ALU:Not A
+  0b00001011,   //0x0B  1101 IFZERO   IT      ALU:Not A
+  0b00000000,   //0x00  1110 USER     const   ALU:?
+  0b00000000    //0x00  1111 USER     IT      ALU:?
 };
 //Feinberg Example
 //Ensure EEPROM_PAGE set to LOW as Feinberg Example should be Page 0
-#define PAGE LOW
-byte code [] = {
-  0b10000010,   //0x82
-  0b00010000,   //0x10
-  0b00100001,   //0x21
-  0b01100010,   //0x62
-  0b10100000    //0xA0
+//#define PAGE LOW
+byte code0 [] = {
+  0b10000010,   //0x82      READ    2
+  0b00010000,   //0x10      LOAD    IT
+  0b00100001,   //0x21      ADD     1
+  0b01100010,   //0x62      STORETO 2
+  0b10100000    //0xA0      GOTO    0
 };
 //CHUMP Workbook: Enhanced Swapping Variables code
 //Ensure EEPROM_PAGE set to HIGH as USER code should be Page 1
 //#define PAGE HIGH
-byte code1 [] = {
+byte codeS [] = {
   0b00000001, // LOAD 1       accum<-1,pc++       Places a 1 in the accumulator
   0b11000101, // STORETO x    [5]<-accum,pc++     Stores accum (1) in RAM Address 5
   0b00000010, // LOAD 2       accum<-2,pc++       Places a 2 in the accumulator
@@ -91,6 +102,36 @@ byte code1 [] = {
   0b00010000, // LOAD IT      accum<-[15], pc++
   0b01101010, // STORETO y    [10]<-accum, pc++
 };
+//CHUMP Test Code: LOAD sequence
+//Ensure EEPROM_PAGE set to HIGH as USER code should be Page 1
+//#define PAGE HIGH
+byte codeL [] = {
+  0b00000000, // LOAD 0       accum<-0,pc++       Places a 0 in the accumulator
+  0b00000001, // LOAD 1       accum<-1,pc++       Places a 1 in the accumulator
+  0b00000010, // LOAD 2       accum<-2,pc++       Places a 2 in the accumulator
+  0b00000011, // LOAD 3       accum<-3,pc++       Places a 3 in the accumulator
+  0b00000100, // LOAD 4       accum<-4,pc++       Places a 4 in the accumulator
+  0b00000101, // LOAD 5       accum<-5,pc++       Places a 5 in the accumulator
+  0b00000110, // LOAD 6       accum<-6,pc++       Places a 6 in the accumulator
+  0b00000111, // LOAD 7       accum<-7,pc++       Places a 7 in the accumulator
+  0b00001000, // LOAD 8       accum<-8,pc++       Places a 8 in the accumulator
+  0b00001001, // LOAD 9       accum<-9,pc++       Places a 9 in the accumulator
+  0b00001010, // LOAD 10      accum<-10,pc++      Places a 10 in the accumulator
+  0b00001011, // LOAD 11      accum<-11,pc++      Places a 11 in the accumulator
+  0b00001100, // LOAD 12      accum<-12,pc++      Places a 12 in the accumulator
+  0b00001101, // LOAD 13      accum<-13,pc++      Places a 13 in the accumulator
+  0b00001110, // LOAD 14      accum<-14,pc++      Places a 14 in the accumulator
+  0b10100000  // GOTO 0
+};
+//CHUMP Test Code: ADD sequence
+//Ensure EEPROM_PAGE set to HIGH as USER code should be Page 1
+//#define PAGE HIGH
+byte codeA [] = {
+  0b00000001, // LOAD 1       accum<-1,pc++       Places a 1 in the accumulator
+  0b00100001, // ADD 1        accum+=1,pc++       Adds 1 to the accumulator
+  0b10100001  // GOTO 1       pc<-1
+};
+
 //AT28C16 Codes for LB-602MK2 Dual 7-Segment Hex display
 // See CHUMP7Segment.xlsx Spreadsheet
 // Segment Order: FGABCDE:  I/O6 | I/O5 | I/O4 | I/O3 | I/O0 | I/O1 | I/O2
