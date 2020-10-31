@@ -28,16 +28,16 @@
 //  010n  SUBTRACT
 //  011n  STORETO
 //  100n  READ
-//  101n  GOTO
-//  110n  IFZERO
-//  111n  User-defined
+//  101n  User-defined  // placed here to facilitate branch coding below
+//  110n  GOTO
+//  111n  IFZERO
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Feinberg's Basic CHUMPanese Program Example
 //  0000: 10000010  READ    2   ;addr<-2
 //  0001: 00010000  LOAD    IT  ;accum<-mem[addr]
 //  0002: 00100001  ADD     1   ;accum++
 //  0003: 01100010  STORETO 2   ;mem[2]<-accum
-//  0004: 10100000  GOTO    0   ;pc<-0000
+//  0004: 11000000  GOTO    0   ;pc<-0000
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // I employ a 16-byte buffer for consistent CHUMP writing and reading
 #define DFLT  0xFF     //default byte contents for EEPROM write buffer
@@ -53,8 +53,8 @@ byte codeRead[16] = { 0, 0, 0, 0, //storage for EEPROM read buffer
                     };
 
 //Ensure EEPROM_PAGE set to LOW (Page 0)
-#define PAGE LOW
-byte code [] = {//Common 2019/2020 Control Codes
+//#define PAGE LOW
+byte codeC [] = {//Common 2019/2020 Control Codes
 // REF: http://www.righto.com/2017/03/inside-vintage-74181-alu-chip-how-it.html
 //  SSSSMCAR/W  //S3..S0-Select, M-Mode, C-Carry, A-Accum, R/W-Addr Read/~Write
   0b10101000,   //0xA8  0000 LOAD     const   ALU:B
@@ -67,12 +67,16 @@ byte code [] = {//Common 2019/2020 Control Codes
   0b00000010,   //0x02  0111 STORETO  IT      ALU:ignore
   0b00000011,   //0x03  1000 READ     const   ALU:ignore
   0b00000011,   //0x03  1001 READ     IT      ALU:ignore
-  0b11001011,   //0xCB  1010 GOTO     const   ALU:Logic 1 (Z Flag to PCs LOAD) 
-  0b11001011,   //0xCB  1011 GOTO     IT      ALU:Logic 1 (Z Flag to PCs LOAD)
-  0b00001011,   //0x0B  1100 IFZERO   const   ALU:Not A
-  0b00001011,   //0x0B  1101 IFZERO   IT      ALU:Not A
-  0b00000000,   //0x00  1110 USER     const   ALU:?
-  0b00000000    //0x00  1111 USER     IT      ALU:?
+//--------------------------------------------------------
+// Place user function here to facilitate identification of branch instructions
+// Generate a Logic 1 on F0..F3, disable the Accum
+  0b11001010,   //0x00  1010 USER     const   ALU:?
+  0b11001010,   //0x00  1011 USER     IT      ALU:?
+//-------------------------------------------------------
+  0b11001011,   //0xCB  1100 GOTO     const   ALU:Logic 1 (Z Flag to PCs LOAD) 
+  0b11001011,   //0xCB  1101 GOTO     IT      ALU:Logic 1 (Z Flag to PCs LOAD)
+  0b00001011,   //0x0B  1110 IFZERO   const   ALU:Not A
+  0b00001011    //0x0B  1111 IFZERO   IT      ALU:Not A
 };
 //Feinberg Example
 //Ensure EEPROM_PAGE set to LOW as Feinberg Example should be Page 0
@@ -82,7 +86,7 @@ byte code0 [] = {
   0b00010000,   //0x10      LOAD    IT
   0b00100001,   //0x21      ADD     1
   0b01100010,   //0x62      STORETO 2
-  0b10100000    //0xA0      GOTO    0
+  0b11000000    //0xC0      GOTO    0
 };
 //CHUMP Workbook: Enhanced Swapping Variables code
 //Ensure EEPROM_PAGE set to HIGH as USER code should be Page 1
@@ -104,8 +108,8 @@ byte codeS [] = {
 };
 //CHUMP Test Code: LOAD sequence
 //Ensure EEPROM_PAGE set to HIGH as USER code should be Page 1
-//#define PAGE HIGH
-byte codeL [] = {
+#define PAGE HIGH
+byte code [] = {
   0b00000000, // LOAD 0       accum<-0,pc++       Places a 0 in the accumulator
   0b00000001, // LOAD 1       accum<-1,pc++       Places a 1 in the accumulator
   0b00000010, // LOAD 2       accum<-2,pc++       Places a 2 in the accumulator
@@ -121,7 +125,7 @@ byte codeL [] = {
   0b00001100, // LOAD 12      accum<-12,pc++      Places a 12 in the accumulator
   0b00001101, // LOAD 13      accum<-13,pc++      Places a 13 in the accumulator
   0b00001110, // LOAD 14      accum<-14,pc++      Places a 14 in the accumulator
-  0b10100000  // GOTO 0
+  0b11000000  // GOTO 0
 };
 //CHUMP Test Code: ADD sequence
 //Ensure EEPROM_PAGE set to HIGH as USER code should be Page 1
@@ -129,7 +133,7 @@ byte codeL [] = {
 byte codeA [] = {
   0b00000001, // LOAD 1       accum<-1,pc++       Places a 1 in the accumulator
   0b00100001, // ADD 1        accum+=1,pc++       Adds 1 to the accumulator
-  0b10100001  // GOTO 1       pc<-1
+  0b11000001  // GOTO 1       pc<-1
 };
 
 //AT28C16 Codes for LB-602MK2 Dual 7-Segment Hex display
