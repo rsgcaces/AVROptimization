@@ -2,7 +2,7 @@
 // PURPOSE  :Flashes the AT28C16 (2Kx8) EEPROM IC for Program, Control, and 7-Segment Hex Codes
 // COURSE   :ICS4U
 // AUTHOR   :B. Eater. adapted for ACES' CHUMP use by C. D'Arcy
-// DATE     :Confirmed: 2020 10 31
+// DATE     :Confirmed: 2020 11 01
 // MCU      :UNO
 // STATUS   :Working (on RSGC ACES EEPROM Burner Shield for 28C16A-15)
 // NOTE     :Close as many other open applications as possible to
@@ -22,6 +22,8 @@
 //          :C. D'Arcy's EEPROM Shield...
 //            https://drive.google.com/file/d/12FoAc5GdYHuSdHf3LrMWL7VSGYHGxhIQ/view
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// ACES Encoding of Instructions is changed from Feinberg to 
+//  facilitate simpler identification of the two branching instructions 
 // CHUMPanese INSTRUCTION SET where n: 0-constant, 1-memory (RAM)
 //  000n  LOAD
 //  001n  ADD 
@@ -29,8 +31,8 @@
 //  011n  STORETO
 //  100n  READ
 //  101n  User-defined  // placed here to facilitate branch coding below
-//  110n  GOTO
-//  111n  IFZERO
+//  110n  GOTO          // Moved here for upper two bits high
+//  111n  IFZERO        //
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Feinberg's Basic CHUMPanese Program Example
 //  0000: 10000010  READ    2   ;addr<-2
@@ -106,10 +108,23 @@ byte codeS [] = {
   0b00010000, // LOAD IT      accum<-[15], pc++
   0b01101010, // STORETO y    [10]<-accum, pc++
 };
-//CHUMP Test Code: LOAD sequence
+//CHUMP Workbook: while Loop code
 //Ensure EEPROM_PAGE set to HIGH as USER code should be Page 1
 #define PAGE HIGH
 byte code [] = {
+  0b00000011, // 0:0x03 LOAD 3       accum<-3,pc++         Places a 3 in the accumulator
+  0b01100101, // 1:0x65 STORETO x    [5]<-accum,pc++       Stores accum (3) in RAM Address 5
+  0b11100110, // 2:0xE6 IFZERO 6     accum==0?:pc<-6:pc++  
+  0b01000001, // 3:0x41 SUBTRACT 1   accum--,pc++          Stores accum (2) in RAM Address 15
+  0b01100101, // 4:0x65 STORETO x    [5]<-accum,pc++       Stores accum (?) in RAM Address 5
+  0b11000010, // 5:0xC2 GOTO 2       pc<-2
+  0b11000000, // 6:0xC0 GOTO 0       pc<-0
+};
+
+//CHUMP Test Code: LOAD sequence
+//Ensure EEPROM_PAGE set to HIGH as USER code should be Page 1
+//#define PAGE HIGH
+byte codeL [] = {
   0b00000000, // LOAD 0       accum<-0,pc++       Places a 0 in the accumulator
   0b00000001, // LOAD 1       accum<-1,pc++       Places a 1 in the accumulator
   0b00000010, // LOAD 2       accum<-2,pc++       Places a 2 in the accumulator
