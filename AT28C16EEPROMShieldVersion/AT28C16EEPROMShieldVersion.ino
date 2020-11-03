@@ -95,8 +95,8 @@ byte code [] = {
 //Additional Instruction Example: Shift Left: A PLUS A
 //Ensure EEPROM_PAGE set to HIGH as Feinberg Example should be Page 0
 //#define PAGE HIGH
-byte codeD[] = { //(D)oubling (aka A PLUS A) aka SHL (Shift Left)
-  0b00000001,   //0x01      LOAD    1     accum<-1, pc++        
+byte codeD[] = { //(D)oubling (Function: A PLUS A) aka SHL (Shift Left)
+  0b00000111,   //0x01      LOAD    7     accum<-7, pc++        
   0b10100000,   //0xA0      SHL     na    accum<-accum<<1, pc++ 
   0b11100000,   //0xE0      IFZERO  0     accum==0?:pc<-0:pc++  
   0b11000001    //0xC1      GOTO    1     pc<-0001              
